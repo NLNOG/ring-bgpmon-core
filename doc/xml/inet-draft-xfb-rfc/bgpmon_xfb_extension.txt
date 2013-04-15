@@ -1,0 +1,354 @@
+BGPmon Extensions to XFB
+
+Jason Bartlett, Mikhail Strizhov, Kirill Belyaev, Dan Massey
+Network Security Group
+Colorado State University
+
+Table of Contents
+-----------------
+1.	Introduction
+2.	New Elements
+2.1		BGPMON_SEQ
+2.2		STATUS_MSG
+2.2.1		BGPMON_STATUS
+2.2.2		CHAIN_STATUS
+2.2.3		SESSION_STATUS
+2.2.4		MRT_STATUS
+3.	Extensions
+4.	References
+
+1.	Introduction
+To represent BGP routing data, BGPmon implements XFB as defined in draft-bartlett-xfb.
+However, there is additional information specific to the operation of BGPmon itself that
+is useful to administrators.  This document defines the extensions to the base XFB specification
+that BGPmon implements.
+
+2.	New Elements
+BGPmon adds some new elements to the standard XFB specification to assist in statistic collection
+and quality of service.  These are defined below.  Future revisions of the BGPmon software may
+necessitate more such elements.
+
+2.1		The BGPMON_SEQ node and loop detection
+Because of the chaining ability of BGPmon, it is possible for messages to loop.  To
+avoid this, every BGPmon instance generates a random ID and starting sequence number.  Then, 
+every outgoing message is tagged with a BGPMON_SEQ node that contains both values.
+
+When a BGPmon receives a message from a chained BGPmon, it checks the id.  If this is the first
+message seen from this id, the id is associated internally with the specific chain thread that
+received the message.  Then as more messages come in, duplicates that come in from different
+chains are dropped.  This way, downstream BGPmon instances are not inundated with duplicate
+messages.
+
+2.2		STATUS_MSG
+To conform to the XFB specification, the BGP_MESSAGE is still used as the root element of every
+message output from BGPmon.  However, BGPmon uses a new element called STATUS_MSG to communicate
+information about the internal state of a BGPmon instance.
+
+   The STATUS_MSG contains one of four kinds of messages: MRT_STATUS,
+   SESSION_STATUS, and CHAIN_STATUS, BGPMON_STATUS, representing the
+   operation status of any connected MRT collectors, BGP peering routers,
+   peering BGPMon server, and the BGPMon server and its queues respectively.
+	+---------------+
+	| STATUS_MSG    |
+	+---------------+
+	|               |<>--+--[ SESSION_STATUS ]
+	|               |    |--[ CHAIN_STATUS   ]
+	|               |    |--[ MRT_STATUS	   ]
+	|               |    |--[ BGPMON_STATUS  ]
+	+---------------+
+
+                        Figure 1: STATUS_MSG class
+
+2.2.1  BGPMON_STATUS / QUEUE
+
+   BGPMON_STATUS includes a BGPMON_UP node that contains information
+	about the uptime of the associated BGPMON.  The BGPMON_STATUS message
+	also includes zero or
+	multiple child QUEUE elements, which in
+   turn carry the information about BGPMon internal message queues.
+	+---------------+
+	| BGPMON_STATUS |
+	+---------------+
+	|INTEGER count	|<>-------- +-------------------+
+	|				|			| BGPMON_UP			|
+	|				|			+-------------------+
+	|				|			| INTEGER last_down |
+	|				|			| INTEGER uptime	|
+	|				|			+-------------------+
+	|				|	        +---------+    
+	| 			    |<>-{0..*}- |  QUEUE  |
+	|               |           +---------+
+	+---------------+           |         |<>----[ NAME   ]
+		                        |         |<>----[ ITEM   ]
+		                        |         |<>----[ READER ]
+		                        |         |<>----[ WRITER ]
+		                        |         |<>----[ PACING ]
+		                        +---------+
+
+                          Figure 2: BGPMON_STATUS
+
+   The BGPMON_STATUS contains the following attributes:
+
+   count
+      INTEGER.  The number of QUEUE elements.
+
+	The BGPMON_UP contains the following attributes:
+		INTEGER last_down - the timestamp of the last time the BGPMON instance went down
+		INTEGER uptime - how long the BGPMON has been up
+
+   QUEUE
+      Zero or more.  The QUEUE element which is described as the
+      following.
+
+   The QUEUE element contains the following elements
+
+- NAME: Human readable name. BGPmon reports status of the Peer Queue, Label
+Queue, XML Update Queue and XML RIB Queue.
+
+- ITEM, READER, WRITER
+These elements contain the integer number of messages, reader, and writers in the queue, 
+respectively.  In addition, the following two attributes are defined for each of them:
+
+- INTEGER max: An attribute containing the greatest number of stored messages seen.
+- INTEGER limit: An attribute containing the maximum allowed number of messages in the queue.
+For READER and WRITER, these are always set to 0.
+
+- PACING
+The PACING element includes information about the pacing being used by BGPmon.  It holds three
+elements:
+
+- FLAG: Contains a boolean value to indicate whether or not pacing is being used on this queue.
+Please refer to the BGPmon specification for more information on pacing.
+- COUNT: Holds an integer that counts how many times the queue has had pacing enabled. Also
+has max and limit attributes as described above, but should be ignored.
+- WRITE_LIMIT: Contains an integer to indicate the maximum allowed writes from a single writer.
+Only valid while pacing is turned on.  Also has unused max and limit attributes.
+
+
+2.2.2.  CHAIN_STATUS / CHAIN
+
+   CHAIN_STATUS includes zero or multiple child CHAIN elements.
+	+---------------+
+	| CHAIN_STATUS  |
+	+---------------+           +-------+
+	| INTEGER count |<>-{0..*}- | CHAIN |
+	|               |           +-------+
+	+---------------+           |       |<>--------[ UPDATE_ADDR         ]
+		                        |       |<>--------[ UPDATE_PORT         ]
+		                        |       |<>-{0..1}-[ UPDATE_STATE        ]
+		                        |       |<>-{0..1}-[ UPDATE_UPTIME       ]
+		                        |       |<>-{0..1}-[ UPDATE_RECV_MESSAGE ]
+		                        |       |<>-{0..1}-[ UPDATE_RESET        ]
+		                        +-------+
+
+                          Figure 3: CHAIN_STATUS
+
+   The CHAIN_STATUS contains the following attributes:
+
+   count
+      Required.  INTEGER.  The number of CHAIN elements.
+
+   The CHAIN_STATUS contains the following elements
+
+   CHAIN
+      Zero or more.  Each CHAIN element represents another BGPmon instance that is chained
+through the current BGPmon.
+
+   The CHAIN element contains the following elements:
+
+- UPDATE_ADDR: The address of the peering BGPMon server
+- UPDATE_PORT: The port of the peering BGPMon server
+- UPDATE_STATE: Contains the state of the BGPmon's BGP Finite State Machine.
+- UPDATE_UPTIME: Includes the length of time that the peering session has been running for.
+This element also includes attributes that contain the last time the session was down, and
+the time of the last action taken by the peering BGPmon instance.
+- UPDATE_RECV_MESSAGE: Indicates how many messages have been received from this BGPmon.
+Also includes unnecessary max and limit attributes.
+- UPDATE_RESET: Contains the number of times the BGP session has gone down.
+
+2.2.3.  SESSION_STATUS / SESSION
+
+   SESSION_STATUS includes zero or multiple child SESSION elements.
+
+	+----------------+
+	| SESSION_STATUS |
+	+----------------+          +-------+
+	| INTEGER count  |<>-{0..*}-|SESSION|
+	|                |          +-------+
+	+----------------+          |       |<>--------[ ADDR         ]
+		                        |       |<>--------[ PORT         ]
+		                        |       |<>-{0..1}-[ AS           ]
+		                        |       |<>-{0..1}-[ STATE        ]
+		                        |       |<>-{0..1}-[ STATE_CHANGE ]
+		                        |       |<>-{0..1}-[ UPTIME       ]
+		                        |       |<>-{0..1}-[ RECV_MESSAGE ]
+		                        |       |<>-{0..1}-[ RESET            ]
+		                        |       |<>-{0..1}-[ PREFIX           ]
+		                        |       |<>-{0..1}-[ ATTRIBUTE        ]
+		                        |       |<>-{0..1}-[ MEMORY_USAGE     ]
+		                        |       |<>-{0..1}-[ ANNOUNCEMENT     ]
+		                        |       |<>-{0..1}-[ DUP_ANNOUNCEMENT ]
+		                        |       |<>-{0..1}-[ SAME_PATH        ]
+		                        |       |<>-{0..1}-[ DIFF_PATH        ]
+		                        |       |<>-{0..1}-[ WITHDRWAL        ]
+		                        |       |<>-{0..1}-[ DUP_WITHDRWAL    ]
+		                        +-------+
+
+                         Figure 4: SESSION_STATUS
+
+   The SESSION_STATUS contains the following attributes:
+
+- INTEGER count: The number of SESSION elements.  Each SESSION represents either a directly connected 
+router or a router connected via a collector.
+
+   The SESSION_STATUS contains the following elements
+
+- SESSION
+Zero or more.  The SESSION element contains the following elements:
+
+- ADDR: Contains the address of the peering router.
+- PORT: Contains the port number the router is connected to (179 by default).
+- AS: Contains the source AS of the peering router.
+- STATE: Contains the state of the BGPmon's BGP Finite State Machine.
+- STATE_CHANGE: If the message received indicates a change in the FSM,
+this element indicates the previous and new states.
+- UPTIME: Includes the length of time that the peering session has been running for.
+This element also includes attributes that contain the last time the session was down, and
+the time of the last action taken by the peering router.
+- RECV_MESSAGE: Indicates how many messages have been received from this peer.
+Also includes unnecessary max and limit attributes.
+- RESET: Contains the number of times the BGP session has gone down.
+- PREFIX: The number of prefixes in the RIB-IN table from this peer.
+- ATTRIBUTE: The number of unique attribute sets in the RIB-IN table from this peer.
+- MEMORY_USAGE: The number of bytes used by this peer to store its RIB-IN table.
+- {ANNOUNCEMENT, DUP_ANNOUNCEMENT, SAME_PATH, DIFF_PATH, WITHDRAWL, DUP_WITHDRAWL}: The number
+of updates that the BGPmon has seen from each type.
+
+2.2.4.	MRT_STATUS
+BGPmon accepts connections from directly peered routers as well as MRT collectors.  The MRT_STATUS
+message is meant to provide information about both the state of the connected MRT collectors as
+well as information about the routers connected to the collectors.
+
+	+----------------+
+	| MRT_STATUS	 |
+	+----------------+          +-------+
+	| INTEGER count  |<>-{0..*}-|	MRT |
+	|				 |			+-------+
+	|				 |			|		|<>--------[ ADDR		]
+	|				 |			|		|<>--------[ PORT		]
+	|				 |			|		|<>--------[ AS			]
+	|				 |			|		|<>--------[ UPTIME		]
+	|				 |			|		|<>--------[ RESET		]
+	|				 |			+-------+
+	|				 |
+	|				 |			+-------+
+	|			 	 |<>-{0..*}-|SESSION|
+	|                |          +-------+
+	+----------------+          |       |<>--------[ ADDR         ]
+		                        |       |<>--------[ PORT         ]
+		                        |       |<>-{0..1}-[ AS           ]
+		                        |       |<>-{0..1}-[ STATE        ]
+		                        |       |<>-{0..1}-[ STATE_CHANGE ]
+		                        |       |<>-{0..1}-[ UPTIME       ]
+		                        |       |<>-{0..1}-[ RECV_MESSAGE ]
+		                        |       |<>-{0..1}-[ RESET            ]
+		                        |       |<>-{0..1}-[ PREFIX           ]
+		                        |       |<>-{0..1}-[ ATTRIBUTE        ]
+		                        |       |<>-{0..1}-[ MEMORY_USAGE     ]
+		                        |       |<>-{0..1}-[ ANNOUNCEMENT     ]
+		                        |       |<>-{0..1}-[ DUP_ANNOUNCEMENT ]
+		                        |       |<>-{0..1}-[ SAME_PATH        ]
+		                        |       |<>-{0..1}-[ DIFF_PATH        ]
+		                        |       |<>-{0..1}-[ WITHDRWAL        ]
+		                        |       |<>-{0..1}-[ DUP_WITHDRWAL    ]
+		                        +-------+
+
+							Figure 5: The MRT_STATUS and child elements
+
+- MRT
+Zero or more.  The MRT element contains the following elements:
+
+- ADDR: Contains the address of the peering collector.
+- PORT: Contains the port number the collector is connected to (179 by default).
+- AS: Contains the source AS of the peering collector.
+- UPTIME: Contains the length of time the collector has been up for.
+- RESET: Contains the timestamp of the last time the collector went down.
+
+- SESSION
+Zero or more. The SESSION element is defined exactly as in section 2.2.3.
+
+
+3.	Extensions to existing XFB items
+BGPmon adds several additional elements and attributes to existing XFB elements.  These are defined
+below.
+
+3.1. BGP_MESSAGE
+
+- INTEGER type_value: To avoid potential collisions in the IANA database for BGP message type codes,
+we use type codes 256-266 for our internal BGPmon messages.  These are defined as follows:
+
+BMF_TYPE_RESERVED			256
+BMF_TYPE_MSG_TO_PEER		257
+BMF_TYPE_MSG_FROM_PEER		258
+BMF_TYPE_MSG_LABELED		259
+BMF_TYPE_TABLE_TRANSFER		260
+BMF_TYPE_SESSION_STATUS		261
+BMF_TYPE_QUEUES_STATUS		262
+BMF_TYPE_CHAINS_STATUS		263
+BMF_TYPE_FSM_STATE_CHANGE	264
+BMF_TYPE_BGPMON_START		265
+BMF_TYPE_BGPMON_STOP		266
+BMF_TYPE_TABLE_START		267
+BMF_TYPE_TABLE_STOP			268
+BMF_TYPE_MRT_STATUS			277
+
+These can appear in the output stream of BGPmon, especially types 260-268 and 277.  Generally, types 257-259
+include some actual BGP message, and so would be represented by the appropriate BGP message type.
+
+- STRING type: In addition to the defined BGP message types
+ (OPEN,UPDATE,NOTIFICATION,KEEPALIVE,ROUTE_REFRESH), we also use TABLE_START (type 267) and TABLE_STOP
+ (type 268) to denote the beginning or end of a sending of a peer's RIB table, TABLE for messages 
+within a table transfer (type 260) and STATUS for BGPmon status messages (types 261,262,263,265,266).
+
+3.2. PEERING
+
+- INTEGER as_num_len: An attribute that indicates whether the peer uses 2-byte or 4-byte AS numbers.
+Obviously, the valid values for this attribute are 2 and 4.
+- BGPID: An element containing the BGP Identifier for the peer.  This often comes up as 0.0.0.0
+
+3.3. ASCII_MSG
+
+- INTEGER type: An attribute indicating the type code of the BGP message.
+
+3.4. MARKER, OCTETS
+
+- INTEGER length: An attribute listing theThe READER element lists the current number of readers on a given queue.  It also
+has an INTEGER max attribute as defined above.  Current BGPmon output also includes the
+limit attribute as defined above, but a value of 0 is always assigned to it. length in octets of the element.
+
+3.5. WITHDRAWN, PATH_ATTRIBUTES, NLRI
+
+- INTEGER count: An attribute that lists the number of PREFIX elements (for WITHDRAWN or NLRI), or 
+ATTRIBUTE elements (for the PATH_ATTRIBUTES element).
+
+3.6. TYPE, AFI, SAFI, PARAMETER, CAP, ATTRIBUTE
+
+- INTEGER value: An attribute that lists the numerical code for the human-readable value in the element.
+
+3.7. PREFIX
+
+- STRING label: An attribute that indicates whether a given prefix is a duplicate or new announcement or
+is on a new or duplicate path or is a new or duplicate withdrawl.
+
+3.8. AS_SEG
+
+- INTEGER length: An attribute that contains the number of AS numbers in the particular AS_SEG.
+
+4. References
+
+				Cheng, P., Yan, H., Burnett, K., Massey, D., Zhang, L., "BGP routing
+				information in XML", Internet Draft, February 2009.
+
+				Bartlett, J., Strizhov, M., Belyaev, K., Massey, D., "An XML-Based Format
+				for Representing BGP Messages (XFB)", Internet Draft, September 2010.
+

@@ -1,0 +1,32 @@
+#!/bin/bash
+
+CHKCONFIG="@CHKCONFIG[@]"
+UPDATERC="@UPDATERC[@]"
+STARTSTOPD="@STARTSTOPD[@]"
+INSTALL_PROG="@INSTALL_PROGRAM[@]"
+ENABLE_INITSCRIPTS="@ENABLE_INITSCRIPTS[@]"
+
+if [ $ENABLE_INITSCRIPTS == "no" ]
+then 
+  exit 0
+fi
+
+if [ $STARTSTOPD != "no" ] &&  [ $UPDATERC != "no" ]
+then
+  # if start stop d is there (debian)
+  echo "Installing Debian Startup Script"
+  ${UPDATERC} -f bgpmon remove
+  ${INSTALL_PROG} etc/init.d/bgpmon_startup_debian /etc/init.d/bgpmon
+  ${UPDATERC} bgpmon start 99 2 3 4 5 . stop 99 0 1 6 .
+
+elif [ ${CHKCONFIG} != no ]
+then
+  # if chkconfig there (fedora)
+  echo "Installing Fedora Startup Script"
+  ${INSTALL_PROG} etc/init.d/bgpmon_startup_fedora /etc/init.d/bgpmon
+  ${CHKCONFIG} --add bgpmon
+else
+  # else give up and give error message
+  echo "Unable to identify rc.d tools, not able to install startup scripts"
+fi
+

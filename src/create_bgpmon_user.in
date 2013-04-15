@@ -1,0 +1,28 @@
+#!/bin/bash
+
+USERADD="@USERADD[@]"
+ID="@ID[@]"
+BASEDIR="@statedir[@]/run"
+MKDIR="@MKDIR_P[@]"
+ENABLE_BGPMONUSER="@ENABLE_BGPMONUSER[@]"
+
+if [ ${ENABLE_BGPMONUSER} == "no" ]
+then
+  exit
+fi
+ 
+if [ ${USERADD} = no ]
+then
+  USERADD=`which useradd`
+  if [ $? = 1 ]
+  then
+    echo "Unable to add user: bgpmon"
+    exit 1
+  fi
+fi
+${ID} bgpmon > /dev/null 2>&1
+if [ $? = 1 ]
+then
+  ${MKDIR} ${BASEDIR}
+  ${USERADD} -c "BGPmon Account" -r -b ${BASEDIR} bgpmon
+fi

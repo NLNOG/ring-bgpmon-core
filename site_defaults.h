@@ -1,0 +1,201 @@
+/* 
+ * 	Copyright (c) 2010 Colorado State University
+ * 
+ *	Permission is hereby granted, free of charge, to any person
+ *      obtaining a copy of this software and associated documentation
+ *	files (the "Software"), to deal in the Software without
+ *	restriction, including without limitation the rights to use,
+ *	copy, modify, merge, publish, distribute, sublicense, and/or
+ *	sell copies of the Software, and to permit persons to whom
+ *	the Software is furnished to do so, subject to the following
+ *	conditions:
+ *
+ *	The above copyright notice and this permission notice shall be
+ *	included in all copies or substantial portions of the Software.
+ *
+ *	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ *	EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ *	OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ *	NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ *	HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ *	WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ *	FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ *	OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ * 
+ *  File: site_defaults.h
+ * 	Authors:  Dan Massey
+ *  Date: Oct 7, 2008
+ */
+
+#ifndef SITE_DEFAULTS_H_
+#define SITE_DEFAULTS_H_
+
+/* SITE ADMINISTRATORS MAY SET THE FOLLOWING DEFAULTS */
+
+/* running parameters */
+#define RUN_AS_USER "bgpmon"
+#define RUN_DIR "/usr/local/var/run"
+#define PID_FILE "/usr/local/var/run/bgpmon.pid"
+#define MAX_BACKLOG_SIZE_KB 1048576
+
+/* BGPmon LOGIN SETTINGS AND PARAMETERS */
+
+/* Set the default login port number.  If no configuration file is
+ * found, BGPmon listens for an administrator login on this port.
+ * This default setting can be over-ridden by the configuration file   
+ * or the -r port command line option.
+ */
+#define DEFAULT_LOGIN_PORT 50000
+
+/* DEFAULT_LOGIN_LISTEN_ADDR is the default addr which login control module listens on */
+#define DEFAULT_LOGIN_LISTEN_ADDR "ipv4loopback"
+
+/* Set the access login password.  If no configuration file is
+ * found, BGPmon uses this as the access login password.
+ * This is primarily for initial use and password recovery.
+ * It is expected administrators set a password in the configuration file.   
+ */
+#define DEFAULT_ACCESS_PASSWORD "BGPmon"
+
+/* Set the enable password.  If no configuration file is
+ * found, BGPmon uses this as the enable password.
+ * This is primarily for initial use and password recovery.
+ * It is expected administrators set a password in the configuration file.   
+ */
+#define DEFAULT_ENABLE_PASSWORD "BGPmon"
+
+
+/* Set the default BGPmon configuration filename.    This filename
+ * is used the "-c configfile" option is not specified on the command line
+ */
+#define DEFAULT_CONFIGFILE "/usr/local/etc/bgpmon_config.txt"
+
+/* BGPmon LOG SETTINGS AND PARAMETERS */
+
+/* DEFAULT_USE_SYSLOG controls whether output is sent to 
+ * the system's syslog facility or written to stdout.  
+ * Set the value to 1 to use the system's syslog facility.
+ * Set the value to 0 to write all output to stdout.
+ */
+#define DEFAULT_USE_SYSLOG 0	// Don't use syslog
+
+/* DEFAULT_LOG_LEVEL controls the level of output verbosity.
+ *  Possible settings include:
+ *   0  log only emergency messages 
+ *   1  log alert and emergency messages 
+ *   1  log critical, alert and emergency messages 
+ *   2  log critical, alert and emergency messages 
+ *   3  log error, critical, alert and emergency messages 
+ *   4  log warning, error, critical, alert and emergency 
+ *       messages 
+ *   5  log notice, warning, error, critical, alert and 
+ *      emergency messages 
+ *   6  log informational, notice, warning, error, critical, 
+ *      alert and emergency messages 
+ *   7  log debug information in addition to informational, 
+ *      notice, warning, error, critical, alert and emergency 
+ *      messages.   For full debug output,  set #define DEBUG
+ *      in the file where full debug output is desired. 
+ */
+#define DEFAULT_LOG_LEVEL 7  	// DEBUG
+
+/* DEFAULT_LOG_FACILITY sets the syslog facility.
+ *  This setting is only meaningful when messages are written
+ *  to syslog.   This setting is ignored in interactive mode.
+ *  Possible settings include:
+ *  0    	LOG_AUTH
+ *  1    	LOG_AUTHPRIV
+ *  2    	LOG_CONSOLE
+ *  3    	LOG_CRON
+ *  4    	LOG_DAEMON
+ *  5    	LOG_FTP
+ *  6    	LOG_KERN
+ *  7   	LOG_LPR
+ *  8   	LOG_MAIL
+ *  9   	LOG_NEWS
+ *  10   	LOG_SECURITY
+ *  11   	LOG_SYSLOG
+ *  12   	LOG_USER
+ *  13   	LOG_UUCP
+ *  14   	LOG_LOCAL
+ */
+#define DEFAULT_LOG_FACILITY 12 // LOG_USER
+
+/*  default annouce afi/safi */
+#define PEERS_ANNOUCE_AFI 1
+#define PEERS_ANNOUCE_SAFI 1
+
+/*  default monitor side settings */
+#define MONITOR_ADDRESS IPv4_ANY
+#define MONITOR_PORT	50004
+#define MONITOR_ANNOUNCE_HOLDTIME	180
+#define MONITOR_BGP_VERSION	4
+
+/*  default peer side settings */
+#define PEER_PORT	179
+#define PEER_MIN_HOLDTIME	30
+#define PEER_BGP_VERSION	4
+
+/*  default label action */
+#define PEERS_LABEL_ACTION Label
+
+/*   default enabled flag */
+#define PEERS_ENABLED TRUE
+
+/*  default route refresh action */
+#define PEERS_RR_ACTION TRUE
+
+/*  default group name */
+#define DEFAULT_PEER_GROUP_NAME "DefaultPeerGroup"
+
+/* CHAINING RELATED DEFAULTS  */
+
+/* Chains default enabled flag */
+#define CHAINS_ENABLED TRUE
+
+/* CLIENT RELATED DEFAULTS  */
+
+/* CLIENTS_UPDATES_LISTEN_PORT is the default port which the client control updates module listens on */
+#define CLIENTS_UPDATES_LISTEN_PORT 50001
+
+/* CLIENTS_UPDATES_LISTEN_ADDR is the default addr which the clients control updates module listens on */
+#define CLIENTS_UPDATES_LISTEN_ADDR "ipv4loopback"
+
+/* CLIENTS_RIB_LISTEN_PORT is the default port which the clients control rib module listens on */
+#define CLIENTS_RIB_LISTEN_PORT 50002
+
+/* CLIENTS_RIB_LISTEN_ADDR is the default addr which the clients control rib module listens on */
+#define CLIENTS_RIB_LISTEN_ADDR "ipv4loopback"
+
+/* CLIENTS_LISTEN_ENABLED is the default status of clients control module*/
+#define CLIENTS_LISTEN_ENABLED TRUE
+
+/* MRT RELATED DEFAULTS  */
+
+/* MRT_LISTEN_PORT is the default port which mrt control module listens on */
+#define MRT_LISTEN_PORT 50003
+
+/* MRT_LISTEN_ADDR is the default addr which mrt control module listens on */
+#define MRT_LISTEN_ADDR "ipv4any"
+
+/* MRT_LISTEN_ENABLED is the default status of mrt control module*/
+#define MRT_LISTEN_ENABLED TRUE
+
+/* MRT_LABEL_ACTION is the default label action of messages from quagag*/
+#define MRT_LABEL_ACTION Label
+
+/* XML RELATED DEFAULTS  */
+
+/* ASCII_MESSAGES decides if ASCII format message will be generated or not*/
+#define ASCII_MESSAGES TRUE
+
+/* Periodic Module RELATED DEFAULTS  */
+
+/* SESSION_STATUS_INTERVAL decides how often a status message is sent*/
+#define SESSION_STATUS_INTERVAL 300
+
+/* ROUTE_REFRESH_INTERVAL_PATH decides how often a route refresh is triggered*/
+#define ROUTE_REFRESH_INTERVAL 0
+
+#endif /*SITE_DEFAULTS_H_*/

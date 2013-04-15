@@ -1,0 +1,67 @@
+#!/bin/sh
+
+# Startup Debian and Ubuntu script for BGPmon.
+# Author: Mikhail Strizhov
+# strizhov@cs.colostate.edu
+
+
+### BEGIN INIT INFO
+# Provides:          bgpmon
+# Required-Start:    $syslog $local_fs $time
+# Required-Stop:     $syslog $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:	     0 1 6
+# Short-Description: Start BGPmon
+# Description:       Start BGPmon at boot time
+### END INIT INFO
+
+# Using LSB funtions:
+. /lib/lsb/init-functions
+
+set -e
+
+BGPMON=bgpmon
+BINDIR=@bindir[@]
+STATEDIR=@statedir[@]
+BGPMON_EXEC=${BINDIR}/${BGPMON}
+SYSCONFDIR=/etc/bgpmon
+CONFIG_FILE=${SYSCONFDIR}/bgpmon_config.txt
+PIDFILE=${STATEDIR}/run/bgpmon.pid
+STARTSTOPD=@STARTSTOPD[@]
+ARGS=" -c $CONFIG_FILE -s"
+
+case "$1" in
+  start)
+	if [ -f $PIDFILE ]
+	then
+		echo "$PIDFILE exists, $BGPMON is already running or crashed!"
+	else
+                log_begin_msg "Starting bgpmon server"
+                mkdir -p $STATEDIR/run/bgpmon
+                chown bgpmon:bgpmon $STATEDIR/run/bgpmon
+		${STARTSTOPD} --start --quiet --user bgpmon --chuid bgpmon --pidfile $PIDFILE --background --make-pidfile --exec $BGPMON_EXEC -- $ARGS || return 1
+		log_end_msg $?
+	fi	
+        ;;
+  stop)
+
+	if [ ! -f $PIDFILE ]
+	then
+		echo "$PIDFILE does not exist, $BGPMON is not running!"
+	else
+        	echo -n "Shutting down $BGPMON"
+		${STARTSTOPD} --stop --oknodo --user bgpmon --signal 0 --retry 5 --quiet --pidfile $PIDFILE 
+		log_end_msg $?
+		rm $PIDFILE
+	fi
+        ;;
+ restart)
+	$0 stop && sleep 30 && $0 start
+  	;;
+ *)
+  	log_warning_msg "Usage: $BGPMON {start|stop|restart}" >&2
+        exit 1
+esac
+
+exit 0
+

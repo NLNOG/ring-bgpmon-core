@@ -1,0 +1,43 @@
+BGPmon 7.2.3 - ring1
+
+BGP Monitoring System (BGPmon) is designed to monitor BGP updates 
+and routing tables from BGP routers.
+
+It uses modular architecture to scalably monitor many BGP routers
+by distributed deployment while allowing a consolidated and neat 
+interface to end users. BGPmon uses the Extensible Markup Language (XML) for BGP data. 
+This format can accurately record BGP data without any information loss and
+it is extendable for possible new features in BGP updates.
+
+1. INSTALLATION
+
+To install BGPmon you need to have root access or sudo access
+
+The simplest way to compile this package is:
+
+  1. `./configure' to configure the package for your system.
+
+     Running `configure' might take a while.  While running, it prints
+     some messages telling which features it is checking for.
+
+  2. Type `make' to compile the package.
+
+  3. Type `sudo make install' to install the programs 
+     and any data files and documentation. 
+     
+After successful installation you will have:
+
+  3.1  /usr/local/bin/bgpmon - executable BGPmon program
+  3.2  /usr/local/etc/bgpmon_config.txt - default configuration file
+
+2. STARTUP and SHUTDOWN
+
+sudo service bgpmon start 
+sudo service bgpmon stop
+
+
+3. Contact
+     
+     bgpmon@netsec.colostate.edu
+
+

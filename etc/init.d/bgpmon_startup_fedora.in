@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# Startup Fedora and RedHat script for BGPmon.
+#
+# Author: Mikhail Strizhov
+# strizhov@cs.colostate.edu
+#
+#
+# chkconfig: 35 85 15     - start or stop process definition within the boot process
+# description: BGPmon Monitoring System
+# processname: bgpmon
+# pidfile: @statedir[@]/run/bgpmon.pid
+SYSTEMCTL_SKIP_REDIRECT=1
+
+# Source function library.      This creates the operating environment for the process to be started
+. /etc/rc.d/init.d/functions
+
+BGPMON=bgpmon
+BINDIR=@bindir[@]
+STATEDIR=@statedir[@]
+BGPMON_EXEC=${BINDIR}/${BGPMON}
+SYSCONFDIR=@sysconfdir[@]
+CONFIG_FILE=${SYSCONFDIR}/bgpmon_config.txt
+PIDFILE=${STATEDIR}/run/bgpmon.pid
+STARTSTOPD=@STARTSTOPD[@]
+ARGS=" -c $CONFIG_FILE -s"
+
+case "$1" in
+  start)
+	if [ -f $PIDFILE ]
+	then
+		echo "$PIDFILE exists, $BGPMON is already running or crashed!"
+	else
+	        echo -n "Starting $BGPMON: "
+        	daemon $BGPMON_EXEC -c $CONFIG_FILE -s -d
+                RETVAL=$?
+                echo
+                [ $RETVAL -ne 0 ] && exit $RETVAL
+		echo
+	fi	
+        ;;
+  stop)
+
+	if [ ! -f $PIDFILE ]
+	then
+		echo "$PIDFILE does not exist, $BGPMON is not running!"
+	else
+        	echo -n "Shutting down $BGPMON: "
+	        killproc $BGPMON_EXEC
+                echo
+	        rm -f $PIDFILE
+		sleep 2
+	fi	
+        ;;
+ *)
+        echo "Usage: $0 {start|stop}"
+        exit 1
+esac
+
+exit 0
+

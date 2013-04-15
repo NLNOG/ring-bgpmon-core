@@ -1,0 +1,570 @@
+\documentclass{article}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{underscore}
+\geometry{verbose,letterpaper,lmargin=.5in,rmargin=.5in,tmargin=.5in,bmargin=.5in}
+
+\begin{document}
+
+\title{An XML-Based Format for Representing BGP Messages (XFB)}
+\author{Jason Bartlett, Kirill Belyaev, Mikhail Strizhov, Daniel Massey\\
+NetSec Group\\
+Colorado State University\\
+Jason.D.Bartlett@gmail.com, kirillbelyaev@yahoo.com, strizhov@cs.colostate.edu, massey@cs.colostate.edu}
+
+\maketitle
+\tableofcontents
+
+\begin{abstract}
+In this document we present XFB, an XML-based Format for BGP messages.
+
+The goal of this language is to make raw BGP data easier to understand and process by both human and computers.  By using XML as the template for XFB, we achieve a high level of readability, extensibility, and portability.
+\end{abstract}
+
+\section{Introduction}
+\label{INTRO}
+BGP routing information is a valuable resource for both network administrators and researchers.  It then becomes important to standardize a way to communicate this data.  Any such standard ought to have the following properties:
+
+\begin{itemize}
+\item{Easily human-readable}
+\item{Easy to process by machine}
+\item{Easy to extend for new features in BGP}
+\end{itemize}
+
+It is with these conditions in mind that we present XFB, an XML-based format, as a standardized way to represent the information passed in BGP messages.  By using XML as a base for XFB, we gain XML's portability and extensibility.  In addition, the markup is easy for people to read and also straightforward to process by machine.  Extensions in BGP are added by simply including additional tags and/or annotations to existing tags, and systems not interested in this new data can simply ignore it, allowing for XFB implementations to catch up to new features in BGP with no loss of efficiency.
+
+\section{Terminology}
+\label{TERMS}
+\subsection{Requirements Language}
+\label{REQUIRED}
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119 [RFC2119].
+
+\subsection{XML Terminology}
+\label{XML}
+For purposes of this document, we define the following terms:
+
+\begin{itemize}
+\item{tag: a capitalized language keyword enclosed in angle brackets.  Tags are generally paired as matching start tags (e.g. $<$EXAMPLE_TAG$>$) and end or closing tags (e.g. $<$/EXAMPLE_TAG$>$).}
+\item{data: the actual information enclosed in a matched pair of tags, e.g. $<$EXAMPLE_TAG$>$data$<$/EXAMPLE_TAG$>$.}
+\item{element: refers to a start tag, an end tag, and the enclosed data, e.g., $<$EXAMPLE_TAG$>$data (possibly with nested elements)$<$/EXAMPLE_TAG$>$.}
+\item{empty element: a shorthand representation of an element with no data inside it, e.g., $<$EXAMPLE_TAG/$>$.}
+\item{attribute: required subfields of an element or additional information annotated to an element.  
+If present, attributes MUST be listed inside their owner's tags, e.g. $<$EXAMPLE_TAG attribute=value$>$.
+Attributes MAY be present in empty elements, e.g. $<$EXAMPLE_TAG attribute="value"/$>$}
+\end{itemize}
+
+\subsection{Data Types}
+\label{TYPES}
+Because XFB is a representation of BGP, we restrict the valid data types of the language to the following:
+
+\begin{itemize}
+\item{INTEGER: A standard integer data type.  INTEGERs MUST be encoded as Base-10.}
+\item{CHARACTER: A single ASCII character.  Special characters MUST be encoded with entity references.}
+\item{STRING: A string of ASCII characters.}
+\item{HEXBIN: A data type for representing binary data.  Each octet is encoded as two (2) hexadecimal (base-16) digits.}
+\item{ENUM: An enumerated data type defined with a list of acceptable values.  Each acceptable value MUST have a representative keyword.  Defined enumerated data types are listed in Section~\ref{ENUMS}.}
+\item{DATETIME: A data type for representing a date-time string.  The fields of a DATETIME are the same as the dateTime data type in XML.}
+\end{itemize}
+
+\section{XFB Message Format}
+\label{XFB}
+
+A BGP Message represented in XFB is constructed as a tree of nested elements.  The top-level class is the BGP_MESSAGE, metadata about the message itself and the connection it arrived on are included in the TIME and PEERING elements respectively, and the data from the actual BGP message is contained within the ASCII_MSG and/or
+the OCTET_MSG elements.
+
+\subsection{The BGP_MESSAGE Element}
+\label{BGPMESSAGE}
+
+A BGP_MESSAGE is the root element of every XFB message.  The BGP_MESSAGE class defines the following three (3) attributes:
+
+\begin{itemize}
+\item{STRING \emph{xmlns}: Required. An attribute containing the namespace of the current XFB specification.}
+\item{STRING \emph{version}: Required. An attribute containing the current version of XFB.  Currently 0.3.}
+\item{INTEGER \emph{length}: Required. An attribute containing the length of the entire BGP_MESSAGE (in characters), including the BGP_MESSAGE tags.}
+\end{itemize}
+
+In addition, the following four (4) elements are defined:
+
+\begin{itemize}
+\item{TIME: Required. The timestamp of the BGP_MESSAGE.  The time MAY be represented in either machine-readable or human-readable format.  This element is defined in Section~\ref{TIME}.}
+\item{PEERING: Required. Peering information about the origin of the BGP_MESSAGE.  This element is defined in Section~\ref{PEER}.}
+\item{ASCII_MSG: Optional. An element that contains an ASCII representation of the BGP_MESSAGE.  Defined in Section~\ref{ASCII}.}
+\item{OCTET_MSG: Optional. An element that contains the raw bytes of the BGP_MESSAGE.  Defined in Section~\ref{OCTET}.}
+\end{itemize}
+
+An implementation MUST include one of ASCII_MSG or OCTET_MSG.
+
+As might be imagined, the ASCII version of a BGP_MESSAGE is easier for people to interpret or write scripts for, whereas the binary version is easier for a router to replay.
+Implementations of XFB SHOULD include both ASCII and binary versions of the BGP_MESSAGE.  If only one is to be used, implementations SHOULD prefer the binary version.
+
+The BGP_MESSAGE element MAY include additional child elements, but SHALL NOT include any additional attributes.
+
+\subsubsection{The TIME Element}
+\label{TIME}
+The timestamp element indicates the specific time when the BGP_MESSAGE was received or generated.  The TIME element defines the following attributes:
+
+\begin{itemize}
+\item{INTEGER \emph{timestamp}: An attribute containing the UNIX timestamp of the message, corresponding to the number of seconds since 00:00 1 Jan 1970.}
+\item{DATETIME \emph{datetime}: An attribute containing the human-readable version of the same time.}
+\item{INTEGER \emph{precision_time}:  An attribute containing the number of microseconds past the time indicated by \emph{timestamp} or \emph{datetime}.}
+\end{itemize}
+
+The TIME element MAY also include additional representations of the time, provided such a representation can be expressed as an XML simple type.  Child elements SHALL NOT be defined.
+
+\subsubsection{The PEERING Element}
+\label{PEER}
+The PEERING element contains information that uniquely identifies the connection over which the BGP_MESSAGE is received.  The PEERING element defines the following information:
+
+\begin{itemize}
+\item{SRC_ADDR: Required. An element representing the source IP address.}
+\item{DST_ADDR: Required. An element representing the destination IP address.}
+\item{INTEGER \emph{src_port}: Required. An attribute listing the source port for the BGP_MESSAGE.}
+\item{INTEGER \emph{dst_port}: Required. An attribute containing the destination port for the BGP_MESSAGE.}
+\item{INTEGER \emph{src_as}: Optional. An attribute containing the Autonomous System the source resides in.}
+\item{INTEGER \emph{dst_as}: Optional. An attribute containing the Autonomous System the destination resides in.}
+\end{itemize}
+
+The SRC_ADDR and DST_ADDR elements are defined below.  The PEERING element MAY be extended with additional elements or attributes.
+
+\subsubsection{The ASCII_MSG Element}
+\label{ASCII}
+
+The ASCII_MSG is defined with the following information:
+
+\begin{itemize}
+\item{HEXBIN \emph{marker}: Required. An attribute containing a representation of the 16-octet BGP header field.}
+\item{INTEGER \emph{length}: Required. An attribute containing the length of the message, including the header field, in octets.}
+\item{ENUM \emph{type}: Required. An attribute containing the type of the BGP_MESSAGE.  RFC 4271 defines type codes 1 through 4, and RFC 2918 defines type code 5.  In addition, messages that activate the cisco-route-refresh capability are defined as type code 6.  An implementation MAY handle other types.  In the event of an unrecognized type, the type code MUST be preserved.}
+\item{INTEGER \emph{code}: Optional. An extra attribute for listing the type code, especially for unknown types.}
+\item{\{OPEN,UPDATE,NOTIFICATION,KEEPALIVE,ROUTE_REFRESH,CISCO_ROUTE_REFRESH,UNKNOWN\}.  One (1) Required. An element corresponding to a given message type.  These elements are defined below.}
+\end{itemize}
+
+The ASCII_MSG MAY be extended with additional attributes.
+
+\subsubsection{The OPEN Message}
+\label{OPEN}
+The OPEN message defines the following attributes and elements:
+
+\begin{itemize}
+\item{INTEGER \emph{version}: Required. An attribute containing the protocol version of BGP used in the message.}
+\item{INTEGER \emph{src_as}: Required. An attribute containing the Autonomous System (AS) number of the source of the BGP_MESSAGE.}
+\item{INTEGER \emph{hold_time}: Required. An attribute containing the proposed hold time, in seconds, for this peering session.}
+\item{BGPID: Required. An element containing the BGP Identification of the BGP peer.}
+\item{INTEGER \emph{opt_par_len}: Required. An attribute containing the length of the Optional Parameters field, in octets.}
+\item{OPT_PAR: Optional. If Optional Parameters are present, the OPT_PAR element contains one or more PARAMETER elements.  The PARAMETER element is defined below.  In addition, the OPT_PAR element MAY be extended with additional attributes.}
+\end{itemize}
+
+The PARAMETER class is simple, containing only three (3) attributes and one (1) element:
+
+\begin{itemize}
+\item{ENUM \emph{type}: Required. An attribute containing the type of the parameter.  Type 1 (Authentication) and Type 2 (Capabilities) are included.  Unknown types MUST be preserved.}
+\item{INTEGER \emph{length}: Required. An attribute containing the length of the parameter value, in octets.}
+\item{INTEGER \emph{code}: Optional. An extra attribute for unknown type codes.}
+\item{VALUE: Required. An element containing the value of the parameter. Unknown types MUST be preserved as binary data. Type 1 and Type 2 parameters are defined.}
+\end{itemize}
+
+The AUTHENTICATION element contains a single optional attribute to indicate the type of authentication, and a child element containing the actual binary authentication data.  Note that the Authentication Parameter is deprecated in BGP-4, but is included in XFB for compatibility.  The AUTHENTICATION element MAY be annotated with additional attributes.
+
+The CAPABILITIES element, as defined in RFC 5492, contains one or more CAP child elements, each of which defines the following information:
+
+\begin{itemize}
+\item{STRING \emph{code}: Required. An attribute containing the code of the capability being advertised.}
+\item{INTEGER \emph{length}: Required. An attribute containing the length, in octets, of the advertisement.}
+\item{DATA: Required. An element that contains the string value of the Capability Value field.}
+\end{itemize}
+
+The CAPABILITIES element MAY be annotated with extra attributes.
+
+\subsubsection{The UPDATE Message}
+\label{UPDATE}
+The UPDATE message element is defined with the following information:
+
+\begin{itemize}
+\item{INTEGER \emph{withdrawn_len}: Required. An attribute containing the length of the Withdrawn Routes element, in octets.}
+\item{INTEGER \emph{path_attributes_len}: Required. An attribute containing the length of the Path Attributes field, in octets.}
+\item{WITHDRAWN: Optional. If \emph{withdrawn_len} is zero (0), the WITHDRAWN element may be omitted.  If not, the WITHDRAWN element contains one or more PREFIX elements.}
+\item{PATH_ATTRIBUTES: Optional. If \emph{path_attributes_len} is zero (0), the PATH_ATTRIBUTES element may be omitted.  If not, the PATH_ATTRIBUTES contains one or more ATTRIBUTE elements.  The ATTRIBUTE element is defined below.}
+\item{NLRI: Optional. If \emph{path_attributes_len} is zero (0), the NLRI element may be omitted.  If not, the NLRI element contains one or more PREFIX container element.  The PREFIX element is defined below.}
+\end{itemize}
+
+The PREFIX element defines the following information:
+
+\begin{itemize}
+\item{INTEGER \emph{length}: Optional. An attribute containing the length of the prefix, in bits.}
+\item{ENUM \emph{afi}: Optional. An attribute containing the Address Family Identifier of this prefix.}
+\item{ENUM \emph{safi}: Optional. An attribute containing the Subsequent Address Family Identifier of this prefix.}
+\item{INTEGER \emph{afi_value}: Optional. An attribute containing the type code of the AFI.}
+\item{INTEGER \emph{safi_value}: Optional. An attribute containing the type code of the SAFI.}
+\item{data: The string representation of the prefix.}
+\end{itemize}
+
+The PREFIX element MAY be extended with additional attributes.
+
+As with the PREFIXES element, the PATH_ATTRIBUTES element generally only holds ATTRIBUTE elements inside it, but MAY be extended with additional attributes.
+
+The ATTRIBUTE element defines the following information:
+
+\begin{itemize}
+\item{FLAGS: Required. An empty element with boolean attributes corresponding to each of the four (4) defined path attribute flags (optional, transitive, partial, extended).  In addition, the FLAGS element MAY be extended with additional attributes.}
+\item{ENUM \emph{type}: Required. An attribute containing a human-readable version of the type of this attribute.}
+\item{INTEGER \emph{length}: Required. An attribute containing the length of this attribute, in octets.}
+\item{INTEGER \emph{code}: Optional. Extra attribute for unknown type codes.}
+\item{\{ORIGIN,AS_PATH,NEXT_HOP,MULTI_EXIT_DISC,LOCAL_PREF,ATOMIC_AGGREGATE,AGGREGATOR,
+COMMUNITIES,ORIGINATOR_ID,CLUSTER_LIST,ADVERTISER,RCID_PATH,MP_REACH_NLRI,MP_UNREACH_NLRI,
+EXTENDED_COMMUNITIES,AS4_PATH,AS4_AGGREGATOR,OTHER\}: Required. An element corresponding to one
+of these path attributes.}
+\end{itemize}
+
+The individual path attribute elements are defined in Section~\ref{ATTR}.  Also, the ATTRIBUTE element MAY be extended with additional attributes.
+
+\subsubsection{The NOTIFICATION Message}
+\label{NOTIFICATION}
+The NOTIFICATION element defines the following information:
+
+\begin{itemize}
+\item{ENUM \emph{code}: Required. An attribute containing a human-readable representation of the error code.}
+\item{INTEGER \emph{error_code}: Optional: An attribute containing the numerical representation of the error code.}
+\item{ENUM \emph{subcode}: Required. An attribute containing a human-readable representation of the error subcode.}
+\item{INTEGER \emph{error_subcode}: Optional: An attribute containing the numerical representation of the error subcode.}
+\item{DATA: Optional. If specified for the given error code and subcode, the DATA element contains the string representation of the necessary data.}
+\end{itemize}
+
+The NOTIFICATION element MAY be extended with additional attributes.
+
+\subsubsection{The KEEPALIVE and CISCO_ROUTE_REFRESH Messages}
+\label{OTHER}
+The KEEPALIVE and CISCO_ROUTE_REFRESH BGP message types do not contain any attributes or child elements. These message types are represented in XFB as empty elements with no attributes.  They SHALL NOT be extended with additional attributes or elements.
+
+\subsubsection{The ROUTE_REFRESH Message}
+\label{RR}
+The ROUTE_REFRESH message type is also represented in XFB as an empty element, but does define these attributes:
+
+\begin{itemize}
+\item{ENUM \emph{afi}: Required. An attribute containing the Address Family Identifier.}
+\item{ENUM \emph{safi}: Required. An attribute containing the Subsequent Address Family Identifier.}
+\item{INTEGER \emph{afi_value}: Optional. An attribute containing the type code of the AFI.}
+\item{INTEGER \emph{safi_value}: Optional. An attribute containing the type code of the SAFI.}
+\end{itemize}
+
+The ROUTE_REFRESH element MAY NOT be extended with additional attributes or elements.
+
+\subsubsection{UNKNOWN Message Types}
+\label{UK}
+In the event an unknown type of BGP message is collected, the ASCII_MSG will contain only an UNKNOWN element that preserves the message in HEXBIN format.  The UNKNOWN element MUST NOT be extended with additional attributes.
+
+\subsection{The OCTET_MSG Element}
+\label{OCTET}
+By default, the OCTET_MSG element contains no attributes.  It defines an OCTETS element which contains the HEXBIN version of the BGP_MESSAGE.  The OCTET_MSG element SHOULD NOT be extended with additional attributes.
+
+\section{Additional Definitions}
+
+\subsection{Path Attribute Element Definitions}
+These sections define the information in the elements for each of the defined path attributes.  Unless otherwise noted, they SHOULD NOT be extended with additional elements or attributes.
+\label{ATTR}
+\subsubsection{ORIGIN}
+The ORIGIN element contains no elements and defines these two (2) attributes:
+
+\begin{itemize}
+\item{ENUM \emph{src}: Required. An attribute containing a human-readable representation of the source of this BGP information.}
+\item{INTEGER \emph{code}: Optional. An attribute containing the numerical code for the source of this BGP information.}
+\end{itemize}
+
+\subsubsection{AS_PATH}
+The AS_PATH element contains one or more AS elements, each of which contains a single INTEGER AS number as data.  Also, the AS_PATH defines a single attribute that indicates whether the AS_PATH element is of type \emph{as_sequence} or \emph{as_set}.
+
+\subsubsection{NEXT_HOP}
+The NEXT_HOP path attribute contains a human-readable version of the next hop to reach the prefixes in the NLRI element.  In addition, these attributes are defined:
+
+\begin{itemize}
+\item{ENUM \emph{afi}: Optional. An attribute containing the Address Family Identifier of this prefix.}
+\item{ENUM \emph{safi}: Optional. An attribute containing the Subsequent Address Family Identifier of this prefix.}
+\item{INTEGER \emph{afi_value}: Optional. An attribute containing the type code of the AFI.}
+\item{INTEGER \emph{safi_value}: Optional. An attribute containing the type code of the SAFI.}
+\end{itemize}
+
+\subsubsection{MULTI_EXIT_DISC}
+The MULTI_EXIT_DISC element only contains a single integer.  It does not define any attributes or elements. It MUST NOT be extended.
+
+\subsubsection{LOCAL_PREF}
+The LOCAL_PREF element only contains a single integer.  It does not define any attributes or elements.  It MUST NOT be extended.
+
+\subsubsection{ATOMIC_AGGREGATE}
+The ATOMIC_AGGREGATE is defined as an empty element with no attributes.  It MUST NOT be extended.
+
+\subsubsection{AGGREGATOR}
+The AGGREGATOR element contains a single, required INTEGER attribute which lists the AS of the BGP speaker that aggregated routes.  In addition, a required ADDRESS element is defined with these attributes:
+
+\begin{itemize}
+\item{ENUM \emph{afi}: Optional. An attribute containing the Address Family Identifier of this prefix.}
+\item{ENUM \emph{safi}: Optional. An attribute containing the Subsequent Address Family Identifier of this prefix.}
+\item{INTEGER \emph{afi_value}: Optional. An attribute containing the type code of the AFI.}
+\item{INTEGER \emph{safi_value}: Optional. An attribute containing the type code of the SAFI.}
+\end{itemize}
+
+\subsubsection{COMMUNITIES}
+The COMMUNITIES element is defined to hold one or more of the following elements:
+
+\begin{itemize}
+\item{NO_EXPORT: An empty element that indicates the NO_EXPORT well-known community.}
+\item{NO_ADVERTISE: An empty element that indicates the NO_ADVERTISE well-known community.}
+\item{NO_EXPORT_SUBCONFED: An empty element that indicates the NO_EXPORT_SUBCONFED well-known community.}
+\item{COMMUNITY: An element defining a specific community.  This element is defined below.}
+\item{RESERVED_COMMUNITY: An element defining a specific reserved community.  This element is defined below.}
+\end{itemize}
+
+The COMMUNITIES element does not define any attributes, but MAY be extended with additional attributes.
+
+\subsubsection{COMMUNITY and RESERVED_COMMUNITY}
+The COMMUNITY and RESERVED_COMMUNITY elements are defined as empty elements with the following two (2) attributes:
+
+\begin{itemize}
+\item{INTEGER \emph{as}: An attribute containing the AS contained in the first two octets of the Community value.}
+\item{INTEGER \emph{value}: An attribute containing the identifier contained in the last two octets of the Community value.}
+\end{itemize}
+
+\subsubsection{ORIGINATOR_ID}
+The ORIGINATOR_ID element contains the INTEGER representation of the source of a reflected route.  No attributes or elements are defined.  It MUST NOT be extended.
+
+\subsubsection{CLUSTER_LIST}
+The CLUSTER_LIST element contains one or more ID elements, which contain a human-readable representation of the cluster ID through which a particular reflected route has passed.  It does not define any attributes, but MAY be extended with additional attributes.
+
+\subsubsection{ADVERTISER}
+The ADVERTISER element contains a human-readable representation of a BGP speaker's ID.  It also defines these attributes:
+
+\begin{itemize}
+\item{ENUM \emph{afi}: Optional. An attribute containing the Address Family Identifier of this prefix.}
+\item{ENUM \emph{safi}: Optional. An attribute containing the Subsequent Address Family Identifier of this prefix.}
+\item{INTEGER \emph{afi_value}: Optional. An attribute containing the type code of the AFI.}
+\item{INTEGER \emph{safi_value}: Optional. An attribute containing the type code of the SAFI.}
+\end{itemize}
+
+Note that RFC 1863 is classified as Historic.  Implementations MUST, however, handle this type.
+
+\subsubsection{RCID_PATH}
+The RCID_PATH element contains one or more ID elements that contain human-readable representations of RS Cluster Identifiers as defined in RFC 1863.  This element does not define any attributes, but MAY be extended with additional attributes.
+
+\subsubsection{MP_REACH_NLRI}
+The MP_REACH_NLRI element contains the following information:
+
+\begin{itemize}
+\item{NEXT_HOP: Required. A NEXT_HOP element as defined above.}
+\item{NLRI: Required. An element with the multiprotocol NLRI information.  The NLRI element is defined in Section~\ref{UPDATE}.}
+\item{INTEGER \emph{next_hop_len}: Required. An attribute containing the length, in octets, of the next hop address.}
+\item{ENUM \emph{afi}: Required. An attribute containing the Address Family Identifier of these prefixes.}
+\item{ENUM \emph{safi}: Required. An attribute containing the Subsequent Address Family Identifier of these prefixes.}
+\item{INTEGER \emph{afi_value}: Optional. An attribute containing the type code of the AFI.}
+\item{INTEGER \emph{safi_value}: Optional. An attribute containing the type code of the SAFI.}
+\end{itemize}
+
+In addition, the MP_REACH_NLRI element MAY be extended with additional attributes.
+
+\subsubsection{MP_UNREACH_NLRI}
+The MP_UNREACH_NLRI element defines the following information:
+
+\begin{itemize}
+\item{ENUM \emph{afi}: Required. An attribute containing the Address Family Identifier of these prefixes.}
+\item{ENUM \emph{safi}: Required. An attribute containing the Subsequent Address Family Identifier of these prefixes.}
+\item{INTEGER \emph{afi_value}: Optional. An attribute containing the type code of the AFI.}
+\item{INTEGER \emph{safi_value}: Optional. An attribute containing the type code of the SAFI.}
+\item{WITHDRAWN: Required. A WITHDRAWN element as defined in Section ~\ref{UPDATE}.}
+\end{itemize}
+
+As with MP_REACH_NLRI, MP_UNREACH_NLRI MAY be extended with additional attributes.
+
+\subsubsection{EXTENDED_COMMUNITIES}
+An EXTENDED_COMMUNITIES element contains one or more EXT_COMMUNITY elements that define the following information:
+
+\begin{itemize}
+\item{STRING \emph{type}: Required. An attribute containing a human-readable representation of the type code of the Extended Community.}
+\item{STRING \emph{subtype}: Required. An attribute containing a human-readable representation of the subtype of the Extended Community.}
+\item{INTEGER \emph{transitive}: Optional. A boolean attribute representing if the Extended Community attribute is transitive or not.}
+\item{VALUE: An element containing the binary representation of the value field of the Extended Community.}
+\end{itemize}
+
+Based on the type and subtype, the EXT_COMMUNITY attribute SHOULD be extended with additional elements, for example the IPv4 Address in the IPv4 Address Specific Extended Community, or attributes, such as the AS number in the 2-Octet AS Specific Extended Community.  The EXTENDED_COMMUNITIES element MAY be extended with additional attributes.  Implementations SHOULD include support for the types and subtypes defined in RFC 4360 [RFC4360].
+
+\subsubsection{AS4_PATH}
+The AS4_PATH element is defined exactly the same as the AS_PATH element above.  Because XFB uses INTEGER as its numerical data type, 2-byte and 4-byte AS numbers are represented the same way in XFB.
+
+\subsubsection{AS4_AGGREGATOR}
+As with AS4_PATH, the AS4_AGGREGATOR element is defined the same way as the AGGREGATOR element above.
+
+\subsubsection{OTHER}
+Unknown path attributes are represented in an OTHER element.  No attributes are defined, but additional attributes MAY be defined for the OTHER element.  The only element defined is the OCTETS element, which contains the HEXBIN representation of the unknown data.
+
+\subsection{Enumerated Data Type Definitions}
+\label{ENUMS}
+These are the enumerated data types that an implementation MUST include.  They MAY be extended with additional values.
+
+\subsubsection{Address Family Identifier}
+\begin{itemize}
+\item{"1:IPV4"}
+\item{"2:IPV6"}
+\item{"OTHER"}
+\end{itemize}
+
+\subsubsection{Subsequent Address Family Identifier}
+\begin{itemize}
+\item{"1:NLRI_UNICAST"}
+\item{"2:NLRI_MULTICAST"}
+\item{"3:NLRI_MPLS"}
+\item{"OTHER"}
+\end{itemize}
+
+\subsubsection{Origin Type}
+\begin{itemize}
+\item{"0:IGP"}
+\item{"1:EGP"}
+\item{"2:INCOMPLETE"}
+\item{"OTHER"}
+\end{itemize}
+
+\subsubsection{Parameter Type}
+\begin{itemize}
+\item{"1:AUTHENTICATION"}
+\item{"2:CAPABILITIES"}
+\item{"OTHER"}
+\end{itemize}
+
+\subsubsection{BGP Message Type}
+\begin{itemize}
+\item{"1:ORIGIN"}
+\item{"2:UPDATE"}
+\item{"3:NOTIFICATION"}
+\item{"4:KEEPALIVE"}
+\item{"5:ROUTE_REFRESH"}
+\item{"6:CISCO_ROUTE_REFRESH"}
+\item{"UNKNOWN"}
+\end{itemize}
+
+\subsubsection{Error Types}
+\begin{itemize}
+\item{"1:MESSAGE HEADER ERROR"}
+\item{"2:OPEN MESSAGE ERROR"}
+\item{"3:UPDATE MESSAGE ERROR"}
+\item{"4:HOLD TIMER EXPIRED"}
+\item{"5:FINITE STATE MACHINE ERROR"}
+\item{"6:CEASE"}
+\item{"UNKNOWN ERROR"}
+\end{itemize}
+
+\subsubsection{Error Sub-Types}
+\begin{itemize}
+\item{"1:CONNECTION NOT SYNCHRONIZED"}
+\item{"2:BAD MESSAGE LENGTH"}
+\item{"3:BAD MESSAGE TYPE"}
+
+\item{"1:UNSUPPORTED VERSION NUMBER"}
+\item{"2:BAD PEER AS"}
+\item{"3:BAD BGP IDENTIFIER"}
+\item{"4:UNSUPPORTED OPTIONAL PARAMETER"}
+\item{"5:AUTHENTICATION FAILURE"}
+\item{"6:UNACCEPTABLE HOLD TIME"}
+\item{"7:UNSUPPORTED CAPABILITY"}
+
+\item{"1:MALFORMED ATTRIBUTE LIST"}
+\item{"2:UNRECOGNIZED WELL-KNOWN ATTRIBUTE"}
+\item{"3:MISSING WELL-KNOWN ATTRIBUTE"}
+\item{"4:ATTRIBUTE FLAGS ERROR"}
+\item{"5:ATTRIBUTE LENGTH ERROR"}
+\item{"6:INVALID ORIGIN ATTRIBUTE"}
+\item{"7:AS ROUTING LOOP"}
+\item{"8:INVALID NEXT_HOP ATTRIBUTE"}
+\item{"9:OPTIONAL ATTRIBUTE ERROR"}
+\item{"10:INVALID NETWORK FIELD"}
+\item{"11:MALFORMED AS_PATH"}
+
+\item{"1:MAXIMUM NUMBER OF PREFIXES REACHED"}
+\item{"2:ADMINISTRATIVE SHUTDOWN"}
+\item{"3:PEER DE-CONFIGURED"}
+\item{"4:ADMINISTRATIVE RESET"}
+\item{"5:CONNECTION REJECTED"}
+\item{"6:OTHER CONFIGURATION CHANGE"}
+\item{"7:CONNECTION COLLISION RESOLUTION"}
+\item{"8:OUT OF RESOURCES"}
+
+\item{"UNKNOWN ERROR"}
+\end{itemize}
+
+Note that even though the numerical codes are reused, the strings are unique.  In addition, the values "5:AUTHENTICATION FAILURE" and "7:AS ROUTING LOOP" are deprecated, but MUST be included for compatibility.
+
+\subsubsection{Path Attribute Type}
+\begin{itemize}
+\item{"1:ORIGIN"}
+\item{"2:AS_PATH"}
+\item{"3:NEXT_HOP"}
+\item{"4:MULTI_EXIT_DISC"}
+\item{"5:LOCAL_PREF"}
+\item{"6:ATOMIC_AGGREGATE"}
+\item{"7:AGGREGATOR"}
+\item{"8:COMMUNITIES"}
+\item{"9:ORIGINATOR_ID"}
+\item{"10:CLUSTER_LIST"}
+\item{"11:ADVERTISER"}
+\item{"12:RCID_PATH"}
+\item{"13:MP_REACH_NLRI"}
+\item{"14:MP_UNREACH_NLRI"}
+\item{"15:EXTENDED_COMMUNITIES"}
+\item{"16:AS4_PATH"}
+\item{"17:AS4_AGGREGATOR"}
+\item{"OTHER"}
+\end{itemize}
+
+\section{Security Concerns}
+The fields of an XFB document are descriptive only and do not create any additional security risks.
+
+\section{Acknowledgements}
+We would like to thank 
+%the authors of the old draft
+%who else?
+
+\section{IANA Considerations}
+
+This document uses URNs to describe an XML namespace and schema.  Two
+registrations are needed: (1) registration for the XFB namespace:
+urn:ietf:params:xml:ns:xfb-0.3 and (2) registration for the XFB XML
+schema: urn:ietf:params:xml:schema:xfb-0.3
+
+\section{References}
+
+
+				Cheng, P., Yan, H., Burnett, K., Massey, D., Zhang, L., "BGP routing
+				information in XML", Internet Draft, February 2009.
+
+	[RFC4456]	Bates, T., Chen, E., and Chandra, R., "BGP Route Reflection: 
+				An Alternative to Full Mesh Internal BGP (IBGP)", RFC 4456, April 2006.
+
+	[RFC1863]	Haskin, D., "A BGP/IDRP Route Server alternative to a full mesh routing",
+				RFC 1863, October 1995.
+
+	[RFC4360]	Sangli, S., Tappan, D., Rekhter, Y., "BGP Extended Communities Attribute",
+				RFC 4360, February 2006.
+
+	[RFC4486]	Chen, E., Gillet, V., "Subcodes for BGP Cease Notification Message",
+				RFC 4486, April 2006.
+
+	[RFC3392]	Scudder, J., Chandra, R., "Capabilities Advertisement with BGP-4",
+				RFC 3392, February 2009.
+%need to find documentation for cisco route refresh
+http://www.bgp4.as/bgp-parameters
+
+   [RFC1997]  Chandrasekeran, R., Traina, P., and T. Li, "BGP
+              Communities Attribute", RFC 1997, August 1996.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC2918]  Chen, E., "Route Refresh Capability for BGP-4", RFC 2918,
+              September 2000.
+
+   [RFC4271]  Rekhter, Y., Li, T., and S. Hares, "A Border Gateway
+              Protocol 4 (BGP-4)", RFC 4271, January 2006.
+
+   [RFC4760]  Bates, T., Chandra, R., Katz, D., and Y. Rekhter,
+              "Multiprotocol Extensions for BGP-4", RFC 4760,
+              January 2007.
+
+   [RFC4893]  Vohra, Q. and E. Chen, "BGP Support for Four-octet AS
+              Number Space", RFC 4893, May 2007.
+
+\end{document}
